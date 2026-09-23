@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Tempo en Galicia</string>
+    <string name="widget_name">Widget do Tempo en Galicia</string>
+    <string name="widget_description">Métricas actuais do tempo, alertas meteorolóxicas e botón de actualización manual para Galicia.</string>
+    <string name="widget_refresh">Actualizar</string>
+</resources>

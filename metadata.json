@@ -1,0 +1,6 @@
+{
+  "name": "Tempo en Galicia",
+  "description": "Aplicación do tempo en Galicia con seguimento meteorolóxico atlántico en tempo real, avisos de tempo adverso, predición a 7 días, calidade do aire e histórico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
