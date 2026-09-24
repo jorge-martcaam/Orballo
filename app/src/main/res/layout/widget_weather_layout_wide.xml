@@ -4,21 +4,25 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="2dp">
 
-    <!-- Top Header: Location, Subtitle & Accessible 48dp Refresh Button -->
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+    <!-- Left Block: Location, Temperature, Emoji and Compact UV Badge -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1.2"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
 
+        <!-- Location & Updated Row -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
-            android:layout_toStartOf="@+id/widget_btn_refresh"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/widget_location"
@@ -26,7 +30,7 @@
                 android:layout_height="wrap_content"
                 android:text="Galicia"
                 android:textColor="#FFFFFF"
-                android:textSize="17sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
@@ -35,104 +39,44 @@
                 android:id="@+id/widget_updated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="En tempo real • Actualizado"
+                android:layout_marginStart="6dp"
+                android:text="14:30"
                 android:textColor="#E0F2FE"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <ImageButton
-            android:id="@+id/widget_btn_refresh"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
-            android:background="@drawable/bg_widget_button"
-            android:contentDescription="@string/widget_refresh"
-            android:src="@drawable/ic_widget_refresh"
-            android:scaleType="centerInside" />
-    </RelativeLayout>
-
-    <!-- Severe Alert Banner (Hidden when none) -->
-    <TextView
-        android:id="@+id/widget_alert"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/bg_alert_badge"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="3dp"
-        android:text="⚠️ Aviso meteorolóxico"
-        android:textColor="#FFFFFF"
-        android:textSize="10sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
-
-    <!-- Central Section: Temperature, Condition, Sensación & Emoji -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingVertical="4dp">
-
-        <TextView
-            android:id="@+id/widget_temperature"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="--°"
-            android:textColor="#FFFFFF"
-            android:textSize="38sp"
-            android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_condition"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Cargando..."
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
+                android:textSize="9sp"
                 android:maxLines="1"
                 android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/widget_feels_like"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Sensación --°"
-                android:textColor="#E0F2FE"
-                android:textSize="11sp" />
         </LinearLayout>
 
+        <!-- Temperature, Emoji, UV and Condition -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:layout_marginTop="1dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_temperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--°"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_emoji"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:text="⛅"
-                android:textSize="30sp" />
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/widget_uv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginStart="4dp"
                 android:background="@drawable/bg_widget_button"
                 android:paddingHorizontal="4dp"
                 android:paddingVertical="1dp"
@@ -141,22 +85,34 @@
                 android:textSize="9sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/widget_condition"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="Cargando..."
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Horizontal Divider -->
+    <!-- Divider between Left and Center -->
     <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="6dp"
-        android:background="#33FFFFFF"
+        android:layout_width="1dp"
+        android:layout_height="36dp"
+        android:layout_marginHorizontal="6dp"
+        android:background="@drawable/bg_widget_divider"
         android:contentDescription="@null" />
 
-    <!-- Compact Horizontal Metrics Row (Vento, Humidade, Precipitación) -->
+    <!-- Center Block: Fixed 3 Metrics (Vento, Humidade, Precipitación) -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_weight="1.3"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -173,7 +129,7 @@
                 android:layout_height="wrap_content"
                 android:text="Vento"
                 android:textColor="#BAE6FD"
-                android:textSize="10sp" />
+                android:textSize="9sp" />
 
             <TextView
                 android:id="@+id/widget_wind"
@@ -182,7 +138,7 @@
                 android:layout_marginTop="1dp"
                 android:text="-- km/h"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
@@ -208,7 +164,7 @@
                 android:layout_height="wrap_content"
                 android:text="Humidade"
                 android:textColor="#BAE6FD"
-                android:textSize="10sp" />
+                android:textSize="9sp" />
 
             <TextView
                 android:id="@+id/widget_humidity"
@@ -217,7 +173,7 @@
                 android:layout_marginTop="1dp"
                 android:text="--%"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -239,9 +195,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Precipitación"
+                android:text="Chuvia"
                 android:textColor="#BAE6FD"
-                android:textSize="10sp" />
+                android:textSize="9sp" />
 
             <TextView
                 android:id="@+id/widget_precip"
@@ -250,10 +206,20 @@
                 android:layout_marginTop="1dp"
                 android:text="-- mm"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
     </LinearLayout>
+
+    <!-- Right Block: Refresh Button -->
+    <ImageButton
+        android:id="@+id/widget_btn_refresh"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_widget_button"
+        android:contentDescription="@string/widget_refresh"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_widget_refresh" />
 
 </LinearLayout>

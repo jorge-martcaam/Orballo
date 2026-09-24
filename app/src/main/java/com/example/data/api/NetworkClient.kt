@@ -41,4 +41,13 @@ object NetworkClient {
             .build()
             .create(MeteoGaliciaApiService::class.java)
     }
+
+    val geocodingApi: GeocodingApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://geocoding-api.open-meteo.com/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(GeocodingApiService::class.java)
+    }
 }

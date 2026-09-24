@@ -18,7 +18,10 @@ import com.example.data.model.WeatherDataSource
 import com.example.data.model.WeatherResponse
 import com.example.data.model.AlertLevel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import java.util.Locale
+import kotlin.math.roundToInt
 
 data class FullWeatherData(
     val location: GaliciaLocation,
@@ -54,12 +57,42 @@ data class HistoricalDayData(
     val maxWindSpeed: Double?
 )
 
+data class MultiYearHistoricalSummary(
+    val targetMonthDay: String,
+    val yearsCount: Int,
+    val avgTempMax: Double?,
+    val avgTempMin: Double?,
+    val avgPrecipitation: Double?,
+    val avgWindSpeed: Double?,
+    val rainDaysCount: Int,
+    val rainProbabilityPercent: Int,
+    val hottestYear: Pair<Int, Double>?,
+    val coldestYear: Pair<Int, Double>?,
+    val rainiestYear: Pair<Int, Double>?,
+    val records: List<HistoricalDayData>
+)
+
 class WeatherRepository(
     private val api: WeatherApiService = NetworkClient.weatherApi,
     private val meteoGaliciaApi: MeteoGaliciaApiService = NetworkClient.meteoGaliciaApi
 ) {
 
     suspend fun fetchWeather(location: GaliciaLocation): FullWeatherData = coroutineScope {
+        if (!location.isGalicia) {
+            val openMeteoResponse = runCatching {
+                api.getForecast(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    models = "ecmwf_ifs"
+                )
+            }.getOrNull()
+            return@coroutineScope buildOpenMeteoFallbackWeather(
+                location = location,
+                openMeteoResponse = openMeteoResponse,
+                isFallback = false
+            )
+        }
+
         val concelloId = location.resolveConcelloId()
 
         // Fetch Open-Meteo ECMWF (for medium-range days 3-7 and as graceful fallback)
@@ -103,7 +136,8 @@ class WeatherRepository(
         } else {
             buildOpenMeteoFallbackWeather(
                 location = location,
-                openMeteoResponse = openMeteoResponse
+                openMeteoResponse = openMeteoResponse,
+                isFallback = true
             )
         }
     }
@@ -311,7 +345,8 @@ class WeatherRepository(
 
     private fun buildOpenMeteoFallbackWeather(
         location: GaliciaLocation,
-        openMeteoResponse: WeatherResponse?
+        openMeteoResponse: WeatherResponse?,
+        isFallback: Boolean = true
     ): FullWeatherData {
         val currentDto = openMeteoResponse?.current ?: CurrentWeatherDto(
             temperature = 16.0,
@@ -403,7 +438,7 @@ class WeatherRepository(
             sevenDayForecast = forecastList,
             alerts = alerts,
             primarySource = WeatherDataSource.OPEN_METEO_ECMWF,
-            isFallback = true
+            isFallback = isFallback
         )
     }
 
@@ -458,6 +493,79 @@ class WeatherRepository(
             tempMin = daily?.temperatureMin?.firstOrNull(),
             precipitationSum = daily?.precipitationSum?.firstOrNull(),
             maxWindSpeed = daily?.windSpeedMax?.firstOrNull()
+        )
+    }
+
+    suspend fun fetchMultiYearHistorical(
+        location: GaliciaLocation,
+        dateString: String,
+        yearsCount: Int
+    ): MultiYearHistoricalSummary = coroutineScope {
+        val monthDay = if (dateString.length >= 10) dateString.substring(5) else "09-23"
+        val baseYear = try {
+            dateString.take(4).toInt()
+        } catch (_: Exception) {
+            2025
+        }
+        val maxArchiveYear = 2025
+        val startYear = minOf(baseYear, maxArchiveYear)
+        val targetYears = (0 until yearsCount).map { startYear - it }
+
+        val deferredList = targetYears.map { yr ->
+            async {
+                val yrDate = String.format(Locale.US, "%04d-%s", yr, monthDay)
+                try {
+                    fetchHistoricalWeather(location, yrDate)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }
+
+        val results = deferredList.awaitAll().filterNotNull()
+        if (results.isEmpty()) {
+            throw IllegalStateException("Non hai rexistros históricos dispoñibles para os anos seleccionados")
+        }
+
+        val validMaxTemps = results.mapNotNull { it.tempMax }
+        val validMinTemps = results.mapNotNull { it.tempMin }
+        val validPrecip = results.mapNotNull { it.precipitationSum }
+        val validWind = results.mapNotNull { it.maxWindSpeed }
+
+        val avgMax = if (validMaxTemps.isNotEmpty()) validMaxTemps.average() else null
+        val avgMin = if (validMinTemps.isNotEmpty()) validMinTemps.average() else null
+        val avgP = if (validPrecip.isNotEmpty()) validPrecip.average() else null
+        val avgW = if (validWind.isNotEmpty()) validWind.average() else null
+
+        val rainDays = results.count { (it.precipitationSum ?: 0.0) >= 0.1 }
+        val rainPct = if (results.isNotEmpty()) ((rainDays.toDouble() / results.size) * 100).roundToInt() else 0
+
+        val hottest = results.maxByOrNull { it.tempMax ?: -999.0 }?.let {
+            val yr = it.date.take(4).toIntOrNull() ?: 0
+            it.tempMax?.let { temp -> Pair(yr, temp) }
+        }
+        val coldest = results.minByOrNull { it.tempMin ?: 999.0 }?.let {
+            val yr = it.date.take(4).toIntOrNull() ?: 0
+            it.tempMin?.let { temp -> Pair(yr, temp) }
+        }
+        val rainiest = results.maxByOrNull { it.precipitationSum ?: -999.0 }?.let {
+            val yr = it.date.take(4).toIntOrNull() ?: 0
+            it.precipitationSum?.let { p -> Pair(yr, p) }
+        }
+
+        MultiYearHistoricalSummary(
+            targetMonthDay = monthDay,
+            yearsCount = results.size,
+            avgTempMax = avgMax,
+            avgTempMin = avgMin,
+            avgPrecipitation = avgP,
+            avgWindSpeed = avgW,
+            rainDaysCount = rainDays,
+            rainProbabilityPercent = rainPct,
+            hottestYear = hottest,
+            coldestYear = coldest,
+            rainiestYear = rainiest,
+            records = results.sortedByDescending { it.date }
         )
     }
 }

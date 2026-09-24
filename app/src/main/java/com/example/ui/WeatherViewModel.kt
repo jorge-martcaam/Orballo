@@ -10,6 +10,7 @@ import com.example.data.model.GaliciaLocation
 import com.example.data.repository.AirQualityData
 import com.example.data.repository.FullWeatherData
 import com.example.data.repository.HistoricalDayData
+import com.example.data.repository.MultiYearHistoricalSummary
 import com.example.data.repository.WeatherRepository
 import com.example.widget.GaliciaWeatherWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,13 +37,18 @@ sealed interface HistoricalUiState {
     data object Idle : HistoricalUiState
     data object Loading : HistoricalUiState
     data class Success(val data: HistoricalDayData) : HistoricalUiState
+    data class MultiYearSuccess(val summary: MultiYearHistoricalSummary) : HistoricalUiState
     data class Error(val message: String) : HistoricalUiState
+}
+
+enum class AppPage {
+    ACTUAL,
+    HISTORICO
 }
 
 enum class WeatherTab {
     FORECAST,
-    AIR_QUALITY,
-    HISTORICAL
+    AIR_QUALITY
 }
 
 class WeatherViewModel @JvmOverloads constructor(
@@ -52,8 +58,14 @@ class WeatherViewModel @JvmOverloads constructor(
 
     private val locationPreferences = LocationPreferences(application)
 
+    private val _appPage = MutableStateFlow(AppPage.ACTUAL)
+    val appPage: StateFlow<AppPage> = _appPage.asStateFlow()
+
     private val _defaultLocation = MutableStateFlow(locationPreferences.getDefaultLocation())
     val defaultLocation: StateFlow<GaliciaLocation> = _defaultLocation.asStateFlow()
+
+    private val _favorites = MutableStateFlow(locationPreferences.getFavorites())
+    val favorites: StateFlow<List<GaliciaLocation>> = _favorites.asStateFlow()
 
     private val _selectedLocation = MutableStateFlow(locationPreferences.getDefaultLocation())
     val selectedLocation: StateFlow<GaliciaLocation> = _selectedLocation.asStateFlow()
@@ -84,16 +96,23 @@ class WeatherViewModel @JvmOverloads constructor(
         loadDataForLocation(_selectedLocation.value)
     }
 
-    fun selectTab(tab: WeatherTab) {
-        _selectedTab.value = tab
-        if (tab == WeatherTab.HISTORICAL && _historicalState.value is HistoricalUiState.Idle) {
+    fun selectAppPage(page: AppPage) {
+        _appPage.value = page
+        if (page == AppPage.HISTORICO && _historicalState.value is HistoricalUiState.Idle) {
             queryHistoricalDate(_historicalDate.value)
         }
+    }
+
+    fun selectTab(tab: WeatherTab) {
+        _selectedTab.value = tab
     }
 
     fun selectLocation(location: GaliciaLocation) {
         _selectedLocation.value = location
         loadDataForLocation(location)
+        if (_appPage.value == AppPage.HISTORICO) {
+            queryHistoricalDate(_historicalDate.value)
+        }
     }
 
     fun setDefaultLocation(location: GaliciaLocation) {
@@ -107,6 +126,19 @@ class WeatherViewModel @JvmOverloads constructor(
                 getApplication<Application>().sendBroadcast(intent)
             } catch (_: Exception) {}
         }
+    }
+
+    fun toggleFavorite(location: GaliciaLocation): com.example.data.location.ToggleFavoriteResult {
+        if (location.isGps) return com.example.data.location.ToggleFavoriteResult.REMOVED
+        val result = locationPreferences.toggleFavorite(location)
+        if (result != com.example.data.location.ToggleFavoriteResult.LIMIT_REACHED) {
+            _favorites.value = locationPreferences.getFavorites()
+        }
+        return result
+    }
+
+    fun isFavorite(location: GaliciaLocation): Boolean {
+        return _favorites.value.any { it.name == location.name }
     }
 
     fun tryGpsLocation(locationHelper: LocationHelper) {
@@ -125,7 +157,7 @@ class WeatherViewModel @JvmOverloads constructor(
 
     fun refresh() {
         loadDataForLocation(_selectedLocation.value)
-        if (_selectedTab.value == WeatherTab.HISTORICAL) {
+        if (_appPage.value == AppPage.HISTORICO) {
             queryHistoricalDate(_historicalDate.value)
         }
     }
@@ -165,6 +197,21 @@ class WeatherViewModel @JvmOverloads constructor(
             } catch (e: Exception) {
                 _historicalState.value = HistoricalUiState.Error(
                     e.localizedMessage ?: "Non se puideron obter datos históricos para $dateString"
+                )
+            }
+        }
+    }
+
+    fun queryMultiYearHistorical(dateString: String, yearsCount: Int) {
+        _historicalDate.value = dateString
+        viewModelScope.launch {
+            _historicalState.value = HistoricalUiState.Loading
+            try {
+                val summary = repository.fetchMultiYearHistorical(_selectedLocation.value, dateString, yearsCount)
+                _historicalState.value = HistoricalUiState.MultiYearSuccess(summary)
+            } catch (e: Exception) {
+                _historicalState.value = HistoricalUiState.Error(
+                    e.localizedMessage ?: "Non se puideron obter as medias históricas para os últimos $yearsCount anos"
                 )
             }
         }

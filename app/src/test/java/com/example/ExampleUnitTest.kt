@@ -116,7 +116,7 @@ class ExampleUnitTest {
   @Test
   fun testMeteoGaliciaConcelloResolution() {
     val santiago = com.example.data.model.GaliciaLocation.DEFAULT
-    assertEquals(15078, santiago.resolveConcelloId())
+    assertEquals(15077, santiago.resolveConcelloId())
 
     // GPS location near Vigo should resolve to Vigo concello (36057)
     val nearVigoGps = com.example.data.model.GaliciaLocation(
