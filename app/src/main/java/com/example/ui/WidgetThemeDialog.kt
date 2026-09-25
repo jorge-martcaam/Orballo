@@ -124,15 +124,18 @@ private fun PresetSelectionCard(
             listOf(Color(0xFF0284C7), Color(0xFF0369A1))
         )
         WidgetThemePreset.DARK_GLASS -> Brush.verticalGradient(
-            listOf(Color(0xFF0F172A), Color(0xFF1E293B))
+            listOf(Color(0xA60F172A), Color(0xA61E293B))
         )
         WidgetThemePreset.LIGHT_GLASS -> Brush.verticalGradient(
-            listOf(Color(0xFFF1F5F9), Color(0xFFE2E8F0))
+            listOf(Color(0xA6FFFFFF), Color(0xA6E2E8F0))
+        )
+        WidgetThemePreset.DYNAMIC -> Brush.verticalGradient(
+            listOf(Color(0xFF0284C7), Color(0xFF1E293B))
         )
     }
 
-    val textColor = if (preset.isDarkText) Color(0xFF0F172A) else Color.White
-    val subTextColor = if (preset.isDarkText) Color(0xFF475569) else Color(0xFFE0F2FE)
+    val textColor = if (preset.isDarkText) Color.Black else Color.White
+    val subTextColor = if (preset.isDarkText) Color.Black else Color(0xFFE0F2FE)
 
     Box(
         modifier = Modifier

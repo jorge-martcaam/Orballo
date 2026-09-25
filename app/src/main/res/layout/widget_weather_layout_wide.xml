@@ -125,6 +125,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/widget_label_wind"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Vento"
@@ -160,6 +161,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/widget_label_humidity"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Humidade"
@@ -193,6 +195,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/widget_label_precip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Chuvia"
@@ -211,15 +214,54 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Right Block: Refresh Button -->
-    <ImageButton
-        android:id="@+id/widget_btn_refresh"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
+    <!-- Right Block: Refresh & Location Arrows -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginStart="6dp"
-        android:background="@drawable/bg_widget_button"
-        android:contentDescription="@string/widget_refresh"
-        android:scaleType="centerInside"
-        android:src="@drawable/ic_widget_refresh" />
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <ImageButton
+            android:id="@+id/widget_btn_refresh"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/bg_widget_button"
+            android:contentDescription="@string/widget_refresh"
+            android:src="@drawable/ic_widget_refresh"
+            android:padding="5dp"
+            android:scaleType="centerInside" />
+
+        <LinearLayout
+            android:id="@+id/widget_location_arrows_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <ImageButton
+                android:id="@+id/widget_btn_prev_location"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/bg_widget_button"
+                android:contentDescription="Localización anterior"
+                android:src="@drawable/ic_widget_arrow_left"
+                android:padding="3dp"
+                android:scaleType="centerInside" />
+
+            <ImageButton
+                android:id="@+id/widget_btn_next_location"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_widget_button"
+                android:contentDescription="Localización seguinte"
+                android:src="@drawable/ic_widget_arrow_right"
+                android:padding="3dp"
+                android:scaleType="centerInside" />
+        </LinearLayout>
+    </LinearLayout>
 
 </LinearLayout>

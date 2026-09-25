@@ -34,6 +34,8 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.ACTION_WIDGET_REFRESH" />
+                <action android:name="com.example.ACTION_WIDGET_PREV_LOCATION" />
+                <action android:name="com.example.ACTION_WIDGET_NEXT_LOCATION" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

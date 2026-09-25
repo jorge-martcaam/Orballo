@@ -38,12 +38,22 @@ enum class WidgetThemePreset(
     LIGHT_GLASS(
         key = "light_glass",
         title = "Vidro Claro",
-        description = "Translúcido claro (85%) con texto grafito",
+        description = "Translúcido claro (60%) con texto negro",
         backgroundRes = R.drawable.bg_widget_light_glass,
         buttonBackgroundRes = R.drawable.bg_widget_button_light,
-        primaryTextColor = 0xFF0F172A.toInt(),
-        secondaryTextColor = 0xFF475569.toInt(),
+        primaryTextColor = 0xFF000000.toInt(),
+        secondaryTextColor = 0xFF000000.toInt(),
         isDarkText = true
+    ),
+    DYNAMIC(
+        key = "dynamic",
+        title = "Dinámico (Meteo)",
+        description = "Muda de cor segundo o ceo e a hora",
+        backgroundRes = R.drawable.bg_widget_sunny,
+        buttonBackgroundRes = R.drawable.bg_widget_button,
+        primaryTextColor = 0xFFFFFFFF.toInt(),
+        secondaryTextColor = 0xFFBAE6FD.toInt(),
+        isDarkText = false
     );
 
     companion object {
@@ -64,6 +74,14 @@ class WidgetPreferences(context: Context) {
 
     fun setPreset(preset: WidgetThemePreset) {
         prefs.edit().putString(KEY_WIDGET_PRESET, preset.key).apply()
+    }
+
+    fun getWidgetLocationIndex(appWidgetId: Int): Int {
+        return prefs.getInt("widget_loc_idx_$appWidgetId", 0)
+    }
+
+    fun setWidgetLocationIndex(appWidgetId: Int, index: Int) {
+        prefs.edit().putInt("widget_loc_idx_$appWidgetId", index).apply()
     }
 
     companion object {

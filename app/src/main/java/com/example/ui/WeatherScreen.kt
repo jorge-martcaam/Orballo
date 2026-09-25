@@ -4,6 +4,10 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +37,8 @@ import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
@@ -100,6 +106,7 @@ import com.example.data.model.UvIndexUtils
 import com.example.data.model.UvSafetyLevel
 import com.example.data.model.WeatherAlert
 import com.example.data.model.WeatherDataSource
+import com.example.data.model.WeatherTimeUtils
 import com.example.data.repository.AirQualityData
 import com.example.data.repository.FullWeatherData
 import com.example.data.repository.HistoricalDayData
@@ -350,7 +357,10 @@ fun WeatherScreen(
                             // Current Day Forecast (24-Hour Timeline from MeteoGalicia WRF)
                             if (state.data.todayHourlyForecast.isNotEmpty()) {
                                 item {
-                                    TodayHourlyForecastSection(hourlyList = state.data.todayHourlyForecast)
+                                    TodayHourlyForecastSection(
+                                        hourlyList = state.data.todayHourlyForecast,
+                                        timezone = state.data.timezone
+                                    )
                                 }
                             }
                         }
@@ -633,19 +643,35 @@ fun WeatherHeroCard(
     defaultLocation: GaliciaLocation,
     onSetDefault: (GaliciaLocation) -> Unit
 ) {
-    val gradientBrush = Brush.verticalGradient(
-        colors = listOf(
-            OceanSkyBlue,
-            Color(0xFF0369A1)
-        )
-    )
+    val hour = remember(data.timezone) { WeatherTimeUtils.getCurrentHourInZone(data.timezone) }
+    val isNight = hour < 7 || hour >= 22
+    val code = data.current.weatherCode ?: 0
+    val precip = data.current.precipitation ?: 0.0
 
-    val visualType = remember(data.current.weatherCode, data.current.precipitation) {
-        WeatherAnimationHelper.determineVisualType(
-            data.current.weatherCode ?: 0,
-            data.current.precipitation ?: 0.0
-        )
+    val isRain = precip > 0.1 || (code in 51..67) || (code in 80..82) || (code in 95..99)
+    val isFogOrCloudy = (code in 45..48) || (code == 3)
+
+    val gradientColors = remember(isRain, isNight, isFogOrCloudy) {
+        when {
+            isRain -> listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+            isNight -> listOf(Color(0xFF090D16), Color(0xFF0F172A))
+            isFogOrCloudy -> listOf(Color(0xFF334155), Color(0xFF1E293B))
+            else -> listOf(OceanSkyBlue, Color(0xFF0369A1))
+        }
     }
+
+    val gradientBrush = Brush.verticalGradient(colors = gradientColors)
+
+    // Contrast based on background relative luminance
+    val topColor = gradientColors.first()
+    val bgLuminance = 0.2126f * topColor.red + 0.7152f * topColor.green + 0.0722f * topColor.blue
+    val isLightBg = bgLuminance > 0.45f
+
+    val heroPrimaryTextColor = if (isLightBg) Color(0xFF0F172A) else Color.White
+    val heroSecondaryTextColor = if (isLightBg) Color(0xFF334155) else Color.White.copy(alpha = 0.85f)
+    val heroSubtleTextColor = if (isLightBg) Color(0xFF475569) else Color.White.copy(alpha = 0.8f)
+    val heroDividerColor = if (isLightBg) Color(0x33000000) else Color.White.copy(alpha = 0.25f)
+    val heroPillBg = if (isLightBg) Color(0x1F000000) else Color.White.copy(alpha = 0.22f)
 
     val isDefault = !data.location.isGps && data.location.name == defaultLocation.name
 
@@ -659,6 +685,7 @@ fun WeatherHeroCard(
     val uvSafety = remember(uvVal) { UvIndexUtils.getSafetyLevel(uvVal) }
     val tempText = data.current.temperature?.let { "${it.roundToInt()}°" } ?: "--°"
     val apparentTempStr = data.current.apparentTemperature?.let { "${it.roundToInt()}°" } ?: "--°"
+    val localTime = remember(data.timezone) { WeatherTimeUtils.formatLocationTime(data.timezone) }
 
     Card(
         modifier = Modifier
@@ -672,12 +699,6 @@ fun WeatherHeroCard(
                 .background(gradientBrush)
                 .fillMaxWidth()
         ) {
-            // Dynamic animation overlay across entire card
-            WeatherAnimationOverlay(
-                visualType = visualType,
-                modifier = Modifier.matchParentSize()
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -694,7 +715,7 @@ fun WeatherHeroCard(
                             Text(
                                 text = data.location.name,
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                                color = heroPrimaryTextColor
                             )
                             if (isDefault) {
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -709,12 +730,12 @@ fun WeatherHeroCard(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (data.location.isGalicia) {
-                                "${data.location.province} • En tempo real"
+                                "${data.location.province} • $localTime"
                             } else {
-                                "${data.location.province} · ${data.location.country} • En tempo real"
+                                "${data.location.province} · ${data.location.country} • $localTime"
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f)
+                            color = heroSecondaryTextColor
                         )
 
                         // Default location selector control
@@ -724,13 +745,14 @@ fun WeatherHeroCard(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.White.copy(alpha = 0.22f))
+                                        .background(heroPillBg)
                                         .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .testTag("badge_default_location")
                                 ) {
                                     Text(
                                         text = "★ Predeterminada (Widget e App)",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
+                                        color = heroPrimaryTextColor,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -738,7 +760,7 @@ fun WeatherHeroCard(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.White.copy(alpha = 0.18f))
+                                        .background(heroPillBg)
                                         .clickable { onSetDefault(data.location) }
                                         .padding(horizontal = 8.dp, vertical = 3.dp)
                                         .testTag("btn_set_as_default")
@@ -747,14 +769,14 @@ fun WeatherHeroCard(
                                         Icon(
                                             imageVector = Icons.Default.StarBorder,
                                             contentDescription = null,
-                                            tint = Color.White,
+                                            tint = heroPrimaryTextColor,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = "Fixar como predeterminada",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White,
+                                            color = heroPrimaryTextColor,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
@@ -783,7 +805,7 @@ fun WeatherHeroCard(
                             fontWeight = FontWeight.Bold,
                             fontSize = 50.sp
                         ),
-                        color = Color.White
+                        color = heroPrimaryTextColor
                     )
 
                     Column(
@@ -793,7 +815,7 @@ fun WeatherHeroCard(
                         Text(
                             text = data.conditionDescription,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = Color.White,
+                            color = heroPrimaryTextColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -805,7 +827,7 @@ fun WeatherHeroCard(
                             Text(
                                 text = "Sensación $apparentTempStr",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.85f)
+                                color = heroSecondaryTextColor
                             )
                             // UV Index indicator with testTag
                             Row(
@@ -822,7 +844,7 @@ fun WeatherHeroCard(
                                 Text(
                                     text = "UV ${String.format(Locale.US, "%.1f", uvVal)}",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = Color.White
+                                    color = heroPrimaryTextColor
                                 )
                             }
                         }
@@ -831,7 +853,7 @@ fun WeatherHeroCard(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.25f),
+                    color = heroDividerColor,
                     thickness = 1.dp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -865,19 +887,19 @@ fun WeatherHeroCard(
                         Text(
                             text = "Vento",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = heroSubtleTextColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = windDisplay,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+                            color = heroPrimaryTextColor
                         )
                     }
 
                     VerticalDivider(
                         modifier = Modifier.height(24.dp),
-                        color = Color.White.copy(alpha = 0.25f)
+                        color = heroDividerColor
                     )
 
                     // Metric 2: Humidade
@@ -888,19 +910,19 @@ fun WeatherHeroCard(
                         Text(
                             text = "Humidade",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = heroSubtleTextColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = humidityStr,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+                            color = heroPrimaryTextColor
                         )
                     }
 
                     VerticalDivider(
                         modifier = Modifier.height(24.dp),
-                        color = Color.White.copy(alpha = 0.25f)
+                        color = heroDividerColor
                     )
 
                     // Metric 3: Precipitación
@@ -911,13 +933,13 @@ fun WeatherHeroCard(
                         Text(
                             text = "Precipitación",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = heroSubtleTextColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = precipStr,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+                            color = heroPrimaryTextColor
                         )
                     }
                 }
@@ -932,7 +954,7 @@ fun WeatherHeroCard(
                     Text(
                         text = badgeLabel,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Color.White.copy(alpha = 0.75f)
+                        color = heroSubtleTextColor
                     )
                 }
             }
@@ -1074,72 +1096,186 @@ fun HeroMetricCell(
 
 @Composable
 fun DayForecastCard(forecast: DayForecast) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val isMg = forecast.source == WeatherDataSource.METEOGALICIA
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { isExpanded = !isExpanded }
+            .testTag("day_forecast_${forecast.date}"),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Date & Condition
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = forecast.iconEmoji,
-                    fontSize = 24.sp
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = forecast.date,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        val isMg = forecast.source == WeatherDataSource.METEOGALICIA
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isMg) Color(0xFF0D9488).copy(alpha = 0.15f) else Color(0xFF4F46E5).copy(alpha = 0.15f))
-                                .padding(horizontal = 5.dp, vertical = 1.dp)
-                        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Date & Condition
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = forecast.iconEmoji,
+                        fontSize = 24.sp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isMg) "MeteoGalicia" else "ECMWF",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                color = if (isMg) Color(0xFF0D9488) else Color(0xFF4F46E5)
+                                text = forecast.date,
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isMg) Color(0xFF0D9488).copy(alpha = 0.15f) else Color(0xFF4F46E5).copy(alpha = 0.15f))
+                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = if (isMg) "MeteoGalicia" else "ECMWF",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                    color = if (isMg) Color(0xFF0D9488) else Color(0xFF4F46E5)
+                                )
+                            }
                         }
+                        Text(
+                            text = forecast.conditionDescription,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                // Rain, Temp & Expand arrow
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (forecast.precipitationProbability > 0) {
+                        Text(
+                            text = "💧 ${forecast.precipitationProbability}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OceanSkyBlue,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
                     }
                     Text(
-                        text = forecast.conditionDescription,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        text = "${forecast.tempMax.roundToInt()}° / ${forecast.tempMin.roundToInt()}°",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Pregar franxas" else "Despregar franxas",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            // Rain & Temp
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (forecast.precipitationProbability > 0) {
-                    Text(
-                        text = "💧 ${forecast.precipitationProbability}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = OceanSkyBlue,
-                        modifier = Modifier.padding(end = 12.dp)
+            // Expandable Period Subcard (Mañá, Tarde, Noite)
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        thickness = 1.dp
                     )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (forecast.periods.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            forecast.periods.forEach { period ->
+                                Card(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = when (period.periodName) {
+                                                "Mañá" -> "🌅 Mañá"
+                                                "Tarde" -> "☀️ Tarde"
+                                                else -> "🌙 Noite"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = period.iconEmoji,
+                                            fontSize = 22.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        if (period.estimatedTemp != null) {
+                                            Text(
+                                                text = "${period.estimatedTemp.roundToInt()}°",
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        Text(
+                                            text = period.conditionDescription,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (period.precipitationProbability > 0) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "💧 ${period.precipitationProbability}%",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                                color = OceanSkyBlue
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Origin Source Attribution Label
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isMg) {
+                                "📡 Fonte oficial: MeteoGalicia (Xunta de Galicia)"
+                            } else {
+                                "🌍 Fonte: Modelo numérico ECMWF IFS (Open-Meteo)"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
-                Text(
-                    text = "${forecast.tempMax.roundToInt()}° / ${forecast.tempMin.roundToInt()}°",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
             }
         }
     }
@@ -1986,10 +2122,11 @@ fun UvIndexCircularCard(
 @Composable
 fun TodayHourlyForecastSection(
     hourlyList: List<HourlyForecast>,
+    timezone: String = "Europe/Madrid",
     modifier: Modifier = Modifier
 ) {
-    val remainingHours = remember(hourlyList) {
-        HourlyForecastUtils.filterRemainingHoursToday(hourlyList)
+    val remainingHours = remember(hourlyList, timezone) {
+        HourlyForecastUtils.filterRemainingHoursToday(hourlyList, timezone)
     }
 
     if (remainingHours.isEmpty()) return

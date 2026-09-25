@@ -7,6 +7,7 @@ import com.squareup.moshi.JsonClass
 data class WeatherResponse(
     val latitude: Double,
     val longitude: Double,
+    val timezone: String? = null,
     val current: CurrentWeatherDto?,
     val hourly: HourlyWeatherDto? = null,
     val daily: DailyWeatherDto?
@@ -97,6 +98,14 @@ enum class WeatherDataSource(
     )
 }
 
+data class DayPeriodForecast(
+    val periodName: String,
+    val iconEmoji: String,
+    val conditionDescription: String,
+    val precipitationProbability: Int,
+    val estimatedTemp: Double? = null
+)
+
 data class DayForecast(
     val date: String,
     val weatherCode: Int,
@@ -107,7 +116,8 @@ data class DayForecast(
     val precipitationProbability: Int,
     val precipitationSum: Double,
     val maxWindSpeed: Double,
-    val source: WeatherDataSource = WeatherDataSource.METEOGALICIA
+    val source: WeatherDataSource = WeatherDataSource.METEOGALICIA,
+    val periods: List<DayPeriodForecast> = emptyList()
 )
 
 data class HourlyForecast(
@@ -145,12 +155,45 @@ object UvIndexUtils {
     }
 }
 
+object WeatherTimeUtils {
+    fun formatLocationTime(timezoneId: String?): String {
+        val validTz = if (timezoneId.isNullOrBlank()) "Europe/Madrid" else timezoneId
+        return try {
+            val zoneId = java.time.ZoneId.of(validTz)
+            val zonedDateTime = java.time.ZonedDateTime.now(zoneId)
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            zonedDateTime.format(formatter)
+        } catch (e: Exception) {
+            try {
+                val zoneId = java.time.ZoneId.of("Europe/Madrid")
+                val zonedDateTime = java.time.ZonedDateTime.now(zoneId)
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                zonedDateTime.format(formatter)
+            } catch (e2: Exception) {
+                java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            }
+        }
+    }
+
+    fun getCurrentHourInZone(timezoneId: String?): Int {
+        val validTz = if (timezoneId.isNullOrBlank()) "Europe/Madrid" else timezoneId
+        return try {
+            val zoneId = java.time.ZoneId.of(validTz)
+            java.time.ZonedDateTime.now(zoneId).hour
+        } catch (e: Exception) {
+            java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        }
+    }
+}
+
 object HourlyForecastUtils {
     fun filterRemainingHoursToday(
         hourlyList: List<HourlyForecast>,
-        currentHour: Int = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        timezoneId: String? = "Europe/Madrid"
     ): List<HourlyForecast> {
         if (hourlyList.isEmpty()) return emptyList()
+
+        val currentHour = WeatherTimeUtils.getCurrentHourInZone(timezoneId)
 
         // Isolate today's items if multiple dates are present
         val firstDate = hourlyList.first().fullDateTime.substringBefore("T")

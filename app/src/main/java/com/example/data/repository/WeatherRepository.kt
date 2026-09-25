@@ -6,8 +6,10 @@ import com.example.data.api.WeatherApiService
 import com.example.data.model.CurrentAirQualityDto
 import com.example.data.model.CurrentWeatherDto
 import com.example.data.model.DayForecast
+import com.example.data.model.DayPeriodForecast
 import com.example.data.model.GaliciaLocation
 import com.example.data.model.HourlyForecast
+import com.example.data.model.HourlyWeatherDto
 import com.example.data.model.MeteoGaliciaConditionUtils
 import com.example.data.model.MeteoGaliciaDiaForecast
 import com.example.data.model.MeteoGaliciaHourlyResponse
@@ -32,7 +34,8 @@ data class FullWeatherData(
     val sevenDayForecast: List<DayForecast>,
     val alerts: List<WeatherAlert>,
     val primarySource: WeatherDataSource = WeatherDataSource.METEOGALICIA,
-    val isFallback: Boolean = false
+    val isFallback: Boolean = false,
+    val timezone: String = "Europe/Madrid"
 )
 
 data class AirQualityData(
@@ -281,6 +284,8 @@ class WeatherRepository(
             val tMin = mgDay.tMin ?: 12.0
             val precipProb = mgDay.pchoiva?.maxProbability() ?: 0
 
+            val periods = buildMeteoGaliciaPeriods(mgDay, tMax, tMin, ceo)
+
             forecastList.add(
                 DayForecast(
                     date = date,
@@ -292,7 +297,8 @@ class WeatherRepository(
                     precipitationProbability = precipProb,
                     precipitationSum = 0.0,
                     maxWindSpeed = 18.0,
-                    source = WeatherDataSource.METEOGALICIA
+                    source = WeatherDataSource.METEOGALICIA,
+                    periods = periods
                 )
             )
         }
@@ -312,6 +318,8 @@ class WeatherRepository(
                     val precipSum = omDaily.precipitationSum?.getOrNull(i) ?: 0.0
                     val windMax = omDaily.windSpeedMax?.getOrNull(i) ?: 16.0
 
+                    val periods = buildEcmwfPeriods(omDate, tMax, tMin, code, precipProb, openMeteoResponse.hourly)
+
                     forecastList.add(
                         DayForecast(
                             date = omDate,
@@ -323,7 +331,8 @@ class WeatherRepository(
                             precipitationProbability = precipProb,
                             precipitationSum = precipSum,
                             maxWindSpeed = windMax,
-                            source = WeatherDataSource.OPEN_METEO_ECMWF
+                            source = WeatherDataSource.OPEN_METEO_ECMWF,
+                            periods = periods
                         )
                     )
                 }
@@ -339,7 +348,8 @@ class WeatherRepository(
             sevenDayForecast = forecastList,
             alerts = alerts,
             primarySource = WeatherDataSource.METEOGALICIA,
-            isFallback = false
+            isFallback = false,
+            timezone = openMeteoResponse?.timezone ?: "Europe/Madrid"
         )
     }
 
@@ -385,6 +395,8 @@ class WeatherRepository(
                 val precipSum = daily.precipitationSum?.getOrNull(i) ?: 0.0
                 val windMax = daily.windSpeedMax?.getOrNull(i) ?: 18.0
 
+                val periods = buildEcmwfPeriods(date, tMax, tMin, code, precipProb, openMeteoResponse?.hourly)
+
                 forecastList.add(
                     DayForecast(
                         date = date,
@@ -396,7 +408,8 @@ class WeatherRepository(
                         precipitationProbability = precipProb,
                         precipitationSum = precipSum,
                         maxWindSpeed = windMax,
-                        source = WeatherDataSource.OPEN_METEO_ECMWF
+                        source = WeatherDataSource.OPEN_METEO_ECMWF,
+                        periods = periods
                     )
                 )
             }
@@ -429,6 +442,9 @@ class WeatherRepository(
             }
         }
 
+        val resolvedTz = openMeteoResponse?.timezone
+            ?: if (location.isGalicia) "Europe/Madrid" else "UTC"
+
         return FullWeatherData(
             location = location,
             current = currentDto,
@@ -438,7 +454,8 @@ class WeatherRepository(
             sevenDayForecast = forecastList,
             alerts = alerts,
             primarySource = WeatherDataSource.OPEN_METEO_ECMWF,
-            isFallback = isFallback
+            isFallback = isFallback,
+            timezone = resolvedTz
         )
     }
 
@@ -566,6 +583,100 @@ class WeatherRepository(
             coldestYear = coldest,
             rainiestYear = rainiest,
             records = results.sortedByDescending { it.date }
+        )
+    }
+
+    private fun buildMeteoGaliciaPeriods(
+        mgDay: MeteoGaliciaDiaForecast,
+        tMax: Double,
+        tMin: Double,
+        defaultCeo: Int
+    ): List<DayPeriodForecast> {
+        val ceoManha = mgDay.ceo?.manha ?: defaultCeo
+        val ceoTarde = mgDay.ceo?.tarde ?: defaultCeo
+        val ceoNoite = mgDay.ceo?.noite ?: defaultCeo
+
+        val (descManha, emojiManha) = MeteoGaliciaConditionUtils.getConditionInfo(ceoManha)
+        val (descTarde, emojiTarde) = MeteoGaliciaConditionUtils.getConditionInfo(ceoTarde)
+        val (descNoite, emojiNoite) = MeteoGaliciaConditionUtils.getConditionInfo(ceoNoite)
+
+        val probManha = mgDay.pchoiva?.manha ?: 0
+        val probTarde = mgDay.pchoiva?.tarde ?: 0
+        val probNoite = mgDay.pchoiva?.noite ?: 0
+
+        val tempRange = tMax - tMin
+        val tempManha = (tMin + tempRange * 0.45).roundToInt().toDouble()
+        val tempTarde = tMax
+        val tempNoite = (tMin + tempRange * 0.25).roundToInt().toDouble()
+
+        return listOf(
+            DayPeriodForecast("Mañá", emojiManha, descManha, probManha, tempManha),
+            DayPeriodForecast("Tarde", emojiTarde, descTarde, probTarde, tempTarde),
+            DayPeriodForecast("Noite", emojiNoite, descNoite, probNoite, tempNoite)
+        )
+    }
+
+    private fun buildEcmwfPeriods(
+        targetDate: String,
+        tMax: Double,
+        tMin: Double,
+        defaultCode: Int,
+        defaultPrecipProb: Int,
+        hourly: HourlyWeatherDto?
+    ): List<DayPeriodForecast> {
+        val range = tMax - tMin
+        if (hourly?.time == null) {
+            val (desc, emoji) = WeatherConditionUtils.getConditionInfo(defaultCode)
+            return listOf(
+                DayPeriodForecast("Mañá", emoji, desc, defaultPrecipProb, (tMin + range * 0.45).roundToInt().toDouble()),
+                DayPeriodForecast("Tarde", emoji, desc, defaultPrecipProb, tMax),
+                DayPeriodForecast("Noite", emoji, desc, defaultPrecipProb, (tMin + range * 0.25).roundToInt().toDouble())
+            )
+        }
+
+        val indicesForDay = hourly.time.indices.filter { hourly.time[it].startsWith(targetDate) }
+        if (indicesForDay.isEmpty()) {
+            val (desc, emoji) = WeatherConditionUtils.getConditionInfo(defaultCode)
+            return listOf(
+                DayPeriodForecast("Mañá", emoji, desc, defaultPrecipProb, (tMin + range * 0.45).roundToInt().toDouble()),
+                DayPeriodForecast("Tarde", emoji, desc, defaultPrecipProb, tMax),
+                DayPeriodForecast("Noite", emoji, desc, defaultPrecipProb, (tMin + range * 0.25).roundToInt().toDouble())
+            )
+        }
+
+        fun getPeriodStats(periodName: String, hourStart: Int, hourEnd: Int, defaultEstimatedTemp: Double): DayPeriodForecast {
+            val periodIndices = indicesForDay.filter { idx ->
+                val timeStr = hourly.time[idx]
+                val hour = timeStr.substringAfter("T").substringBefore(":").toIntOrNull() ?: 12
+                hour in hourStart..hourEnd
+            }
+            if (periodIndices.isEmpty()) {
+                val (desc, emoji) = WeatherConditionUtils.getConditionInfo(defaultCode)
+                return DayPeriodForecast(
+                    periodName = periodName,
+                    iconEmoji = emoji,
+                    conditionDescription = desc,
+                    precipitationProbability = defaultPrecipProb,
+                    estimatedTemp = defaultEstimatedTemp
+                )
+            }
+
+            val temps = periodIndices.mapNotNull { hourly.temperature?.getOrNull(it) }
+            val probs = periodIndices.mapNotNull { hourly.precipitationProbability?.getOrNull(it) }
+            val codes = periodIndices.mapNotNull { hourly.weatherCode?.getOrNull(it) }
+
+            val avgTemp = if (temps.isNotEmpty()) temps.average().roundToInt().toDouble() else defaultEstimatedTemp
+            val maxProb = probs.maxOrNull() ?: defaultPrecipProb
+            val repCode = codes.groupBy { it }.maxByOrNull { it.value.size }?.key ?: defaultCode
+            val (desc, emoji) = WeatherConditionUtils.getConditionInfo(repCode)
+
+            return DayPeriodForecast(periodName, emoji, desc, maxProb, avgTemp)
+        }
+
+        return listOf(
+            getPeriodStats("Mañá", 7, 13, (tMin + range * 0.45).roundToInt().toDouble()),
+            getPeriodStats("Tarde", 14, 19, tMax),
+            getPeriodStats("Noite", 20, 23, (tMin + range * 0.25).roundToInt().toDouble())
         )
     }
 }
