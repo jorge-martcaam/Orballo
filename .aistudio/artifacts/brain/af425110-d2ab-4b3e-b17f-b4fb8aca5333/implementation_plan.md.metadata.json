@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan estruturado en dúas fases para a eliminación de datos simulados de 16°C, limpeza do subsistema GPS, soporte de franxas compactas no Widget, integración de BackHandler e posterior integración de Room Database e modularización de WeatherScreen.",
+  "updatedAt":  "2026-09-29T07:19:59.509961847Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

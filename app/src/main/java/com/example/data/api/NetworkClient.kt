@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 object NetworkClient {
 
-    private val moshi: Moshi = Moshi.Builder()
+    val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
         .build()
 

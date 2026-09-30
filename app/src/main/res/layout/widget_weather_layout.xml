@@ -5,7 +5,8 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:paddingHorizontal="10dp"
+    android:paddingVertical="6dp">
 
     <!-- Top Header: Location, Subtitle & Accessible 48dp Refresh Button -->
     <RelativeLayout
@@ -107,28 +108,51 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
-    <!-- Central Section: Temperature, Condition, Sensación & Emoji -->
+    <!-- Central Section: Temperature (with UV underneath), Condition/Sensación, & Emoji -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
         android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingVertical="4dp">
+        android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/widget_temperature"
+        <!-- Left: Temperature with UV directly underneath -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="--°"
-            android:textColor="#FFFFFF"
-            android:textSize="38sp"
-            android:textStyle="bold" />
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/widget_temperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--°"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <TextView
+                android:id="@+id/widget_uv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="-1dp"
+                android:text="☀️ UV 5"
+                android:textColor="#FEF08A"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Center: Condition & Sensación -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -140,7 +164,8 @@
                 android:textColor="#FFFFFF"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:maxLines="1"
+                android:singleLine="true"
+                android:lines="1"
                 android:ellipsize="end" />
 
             <TextView
@@ -148,54 +173,34 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Sensación --°"
+                android:text="Sens. --°"
                 android:textColor="#E0F2FE"
-                android:textSize="11sp" />
+                android:textSize="11sp"
+                android:singleLine="true"
+                android:lines="1"
+                android:ellipsize="end" />
         </LinearLayout>
 
-        <LinearLayout
+        <!-- Right: Emoji -->
+        <TextView
+            android:id="@+id/widget_emoji"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_emoji"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⛅"
-                android:textSize="30sp" />
-
-            <TextView
-                android:id="@+id/widget_uv"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:background="@drawable/bg_widget_button"
-                android:paddingHorizontal="4dp"
-                android:paddingVertical="1dp"
-                android:text="☀️ 3"
-                android:textColor="#FFFFFF"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </LinearLayout>
+            android:gravity="center"
+            android:text="⛅"
+            android:textSize="28sp" />
     </LinearLayout>
-
-    <!-- Horizontal Divider -->
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="6dp"
-        android:background="#33FFFFFF"
-        android:contentDescription="@null" />
 
     <!-- Compact Horizontal Metrics Row (Vento, Humidade, Precipitación) -->
     <LinearLayout
+        android:id="@+id/widget_metrics_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:background="@drawable/bg_widget_card"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="3.5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -231,7 +236,7 @@
         <!-- Vertical Divider -->
         <ImageView
             android:layout_width="1dp"
-            android:layout_height="22dp"
+            android:layout_height="18dp"
             android:background="@drawable/bg_widget_divider"
             android:contentDescription="@null" />
 
@@ -265,7 +270,7 @@
         <!-- Vertical Divider -->
         <ImageView
             android:layout_width="1dp"
-            android:layout_height="22dp"
+            android:layout_height="18dp"
             android:background="@drawable/bg_widget_divider"
             android:contentDescription="@null" />
 
@@ -294,6 +299,419 @@
                 android:textColor="#FFFFFF"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Three Day Periods for Large Widget (Mañá, Tarde, Noite) -->
+    <LinearLayout
+        android:id="@+id/widget_periods_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <!-- Period 1 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/bg_widget_card"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingHorizontal="3dp"
+            android:paddingVertical="3dp">
+
+            <TextView
+                android:id="@+id/widget_period1_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mañá"
+                android:textColor="#BAE6FD"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_period1_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⛅"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/widget_period1_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:text="--°"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:lines="1" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_period1_rain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💧 --%"
+                android:textColor="#38BDF8"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <TextView
+                android:id="@+id/widget_period1_wind"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💨 --"
+                android:textColor="#BAE6FD"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+        </LinearLayout>
+
+        <!-- Period 2 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="2dp"
+            android:background="@drawable/bg_widget_card"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingHorizontal="3dp"
+            android:paddingVertical="3dp">
+
+            <TextView
+                android:id="@+id/widget_period2_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tarde"
+                android:textColor="#BAE6FD"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_period2_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌧️"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/widget_period2_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:text="--°"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:lines="1" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_period2_rain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💧 --%"
+                android:textColor="#38BDF8"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <TextView
+                android:id="@+id/widget_period2_wind"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💨 --"
+                android:textColor="#BAE6FD"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+        </LinearLayout>
+
+        <!-- Period 3 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="3dp"
+            android:background="@drawable/bg_widget_card"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingHorizontal="3dp"
+            android:paddingVertical="3dp">
+
+            <TextView
+                android:id="@+id/widget_period3_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Noite"
+                android:textColor="#BAE6FD"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_period3_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌙"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/widget_period3_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:text="--°"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:lines="1" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_period3_rain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💧 --%"
+                android:textColor="#38BDF8"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <TextView
+                android:id="@+id/widget_period3_wind"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="💨 --"
+                android:textColor="#BAE6FD"
+                android:textSize="9sp"
+                android:singleLine="true"
+                android:lines="1" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Compact Periods Single-Line Row for medium height widgets (compatibility) -->
+    <LinearLayout
+        android:id="@+id/widget_periods_compact_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_periods_compact_text"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Extra container for maximum widget size (4x4 or taller, minHeight >= 200dp) -->
+    <LinearLayout
+        android:id="@+id/widget_max_extra_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Air Quality Card (Hidden if no AQI data) -->
+        <LinearLayout
+            android:id="@+id/widget_air_quality_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_widget_card"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="3.5dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍃"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/widget_air_quality_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="Calidade do aire:"
+                android:textColor="#BAE6FD"
+                android:textSize="9.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_air_quality_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:text="Boa (ICA 20)"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Previous Year Weather Card (Disposición semellante á de hoxe) -->
+        <LinearLayout
+            android:id="@+id/widget_historical_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:background="@drawable/bg_widget_card"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:orientation="vertical">
+
+            <!-- Card Header: Title -->
+            <TextView
+                android:id="@+id/widget_historical_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 Tal día coma hoxe (2025)"
+                android:textColor="#BAE6FD"
+                android:textSize="9.5sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:lines="1" />
+
+            <!-- Row 1: Mean temperature, condition and emoji -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_historical_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--°"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:lines="1" />
+
+                <TextView
+                    android:id="@+id/widget_historical_temp_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:text="(media)"
+                    android:textColor="#BAE6FD"
+                    android:textSize="9sp" />
+
+                <TextView
+                    android:id="@+id/widget_historical_condition"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="Despexado"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:lines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/widget_historical_emoji"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="☀️"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Row 2: Supporting metrics (Max/Min range, Wind, Rain) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_historical_range"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="↕ 20° / 11°"
+                    android:textColor="#E0F2FE"
+                    android:textSize="9sp"
+                    android:singleLine="true"
+                    android:lines="1" />
+
+                <TextView
+                    android:id="@+id/widget_historical_wind"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="💨 12 km/h"
+                    android:textColor="#BAE6FD"
+                    android:textSize="9sp"
+                    android:singleLine="true"
+                    android:lines="1" />
+
+                <TextView
+                    android:id="@+id/widget_historical_rain"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="🌧️ 0.0 mm"
+                    android:textColor="#38BDF8"
+                    android:textSize="9sp"
+                    android:singleLine="true"
+                    android:lines="1" />
+            </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>

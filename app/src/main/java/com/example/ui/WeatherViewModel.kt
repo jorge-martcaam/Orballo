@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.location.LocationHelper
 import com.example.data.location.LocationPreferences
 import com.example.data.model.GaliciaLocation
 import com.example.data.repository.AirQualityData
@@ -43,7 +42,14 @@ sealed interface HistoricalUiState {
 
 enum class AppPage {
     ACTUAL,
-    HISTORICO
+    HISTORICO,
+    AXUSTES
+}
+
+enum class ThemeMode {
+    SYSTEM,
+    BRETEMA,
+    NOITE
 }
 
 enum class WeatherTab {
@@ -53,10 +59,27 @@ enum class WeatherTab {
 
 class WeatherViewModel @JvmOverloads constructor(
     application: Application,
-    private val repository: WeatherRepository = WeatherRepository()
+    private val repository: WeatherRepository = WeatherRepository(
+        cacheDao = com.example.data.db.AppDatabase.getDatabase(application).weatherCacheDao()
+    )
 ) : AndroidViewModel(application) {
 
     private val locationPreferences = LocationPreferences(application)
+    private val themePrefs = application.getSharedPreferences("orballo_theme_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(
+        try {
+            ThemeMode.valueOf(themePrefs.getString("theme_mode", ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
+        } catch (_: Exception) {
+            ThemeMode.SYSTEM
+        }
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        themePrefs.edit().putString("theme_mode", mode.name).apply()
+    }
 
     private val _appPage = MutableStateFlow(AppPage.ACTUAL)
     val appPage: StateFlow<AppPage> = _appPage.asStateFlow()
@@ -116,20 +139,17 @@ class WeatherViewModel @JvmOverloads constructor(
     }
 
     fun setDefaultLocation(location: GaliciaLocation) {
-        if (!location.isGps) {
-            locationPreferences.setDefaultLocation(location)
-            _defaultLocation.value = location
-            try {
-                val intent = Intent(getApplication(), GaliciaWeatherWidgetProvider::class.java).apply {
-                    action = GaliciaWeatherWidgetProvider.ACTION_WIDGET_REFRESH
-                }
-                getApplication<Application>().sendBroadcast(intent)
-            } catch (_: Exception) {}
-        }
+        locationPreferences.setDefaultLocation(location)
+        _defaultLocation.value = location
+        try {
+            val intent = Intent(getApplication(), GaliciaWeatherWidgetProvider::class.java).apply {
+                action = GaliciaWeatherWidgetProvider.ACTION_WIDGET_REFRESH
+            }
+            getApplication<Application>().sendBroadcast(intent)
+        } catch (_: Exception) {}
     }
 
     fun toggleFavorite(location: GaliciaLocation): com.example.data.location.ToggleFavoriteResult {
-        if (location.isGps) return com.example.data.location.ToggleFavoriteResult.REMOVED
         val result = locationPreferences.toggleFavorite(location)
         if (result != com.example.data.location.ToggleFavoriteResult.LIMIT_REACHED) {
             _favorites.value = locationPreferences.getFavorites()
@@ -141,19 +161,6 @@ class WeatherViewModel @JvmOverloads constructor(
         return _favorites.value.any { it.name == location.name }
     }
 
-    fun tryGpsLocation(locationHelper: LocationHelper) {
-        viewModelScope.launch {
-            _weatherState.value = WeatherUiState.Loading
-            val gpsLocation = locationHelper.getCurrentLocation()
-            if (gpsLocation != null) {
-                _selectedLocation.value = gpsLocation
-                loadDataForLocation(gpsLocation)
-            } else {
-                // Keep current and reload
-                loadDataForLocation(_selectedLocation.value)
-            }
-        }
-    }
 
     fun refresh() {
         loadDataForLocation(_selectedLocation.value)

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group>
+        <clip-path
+            android:pathData="M 54,27 C 53.5,28.5 46.5,41.5 41.5,51 C 38,57.5 36,63.5 36,69 C 36,78.9 44.1,87 54,87 C 63.9,87 72,78.9 72,69 C 72,63.5 70,57.5 66.5,51 C 61.5,41.5 54.5,28.5 54,27 Z" />
+
+        <!-- 1. Top Base -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="1.0"
+            android:pathData="M 30,20 L 78,20 L 78,92 L 30,92 Z" />
+
+        <!-- 2. Upper Wave Layer -->
+        <path
+            android:fillColor="#000000"
+            android:fillAlpha="0.2"
+            android:pathData="M 30,55 C 38,58 45,63 53,60 C 60,57 66,54 78,61 L 78,92 L 30,92 Z" />
+
+        <!-- 3. Middle Wave Layer -->
+        <path
+            android:fillColor="#000000"
+            android:fillAlpha="0.2"
+            android:pathData="M 30,64 C 39,63 47,68 55,66 C 62,64 68,62 78,68 L 78,92 L 30,92 Z" />
+
+        <!-- 4. Bottom Wave Layer -->
+        <path
+            android:fillColor="#000000"
+            android:fillAlpha="0.2"
+            android:pathData="M 30,73 C 40,71 49,78 58,75 C 65,72 71,74 78,76 L 78,92 L 30,92 Z" />
+    </group>
+
+</vector>

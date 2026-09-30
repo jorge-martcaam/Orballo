@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +17,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.widget.WidgetPreferences
 import com.example.data.widget.WidgetThemePreset
+import com.example.ui.widget.OrballoDynamicWidget
+import com.example.ui.widget.SampleOrballoMockData
 import com.example.widget.GaliciaWeatherWidgetProvider
 
 @Composable
@@ -54,18 +60,22 @@ fun WidgetThemeDialog(
     val context = LocalContext.current
     val widgetPrefs = remember { WidgetPreferences(context.applicationContext) }
     var selectedPreset by remember { mutableStateOf(widgetPrefs.getPreset()) }
+    var previewSizeIndex by remember { mutableStateOf(3) } // default: 4x2
+    var previewIsDark by remember { mutableStateOf(true) }
+
+    val sizes = listOf("2×1", "2×2", "4×1", "4×2", "4×3")
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
                 Text(
-                    text = "Aspecto do Widget",
+                    text = "Aspecto e Deseño de Widget",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Selecciona un preaxuste contrastado para o escritorio:",
+                    text = "Deseño Orballo Atlántico e preaxustes para escritorio:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -75,9 +85,85 @@ fun WidgetThemeDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Selector de tamaño do widget dinámico
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Previsualización Orballo Atlántico",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = previewIsDark,
+                            onClick = { previewIsDark = true },
+                            label = { Text("Noite", fontSize = 11.sp) }
+                        )
+                        FilterChip(
+                            selected = !previewIsDark,
+                            onClick = { previewIsDark = false },
+                            label = { Text("Brétema", fontSize = 11.sp) }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        sizes.forEachIndexed { index, label ->
+                            FilterChip(
+                                selected = previewSizeIndex == index,
+                                onClick = { previewSizeIndex = index },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    // Renderizado do widget dinámico Orballo
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = if (previewIsDark) Color(0xFF0F131C) else Color(0xFFE2E8F0),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val widgetModifier = when (previewSizeIndex) {
+                            0 -> Modifier.width(180.dp).height(65.dp) // 2x1
+                            1 -> Modifier.width(180.dp).height(150.dp) // 2x2
+                            2 -> Modifier.fillMaxWidth().height(65.dp) // 4x1
+                            3 -> Modifier.fillMaxWidth().height(150.dp) // 4x2
+                            else -> Modifier.fillMaxWidth().height(230.dp) // 4x3
+                        }
+                        OrballoDynamicWidget(
+                            data = SampleOrballoMockData,
+                            isDark = previewIsDark,
+                            modifier = widgetModifier
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Preaxuste para o Widget de Escritorio Android",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
                 WidgetThemePreset.entries.forEach { preset ->
                     PresetSelectionCard(
                         preset = preset,
@@ -91,7 +177,6 @@ fun WidgetThemeDialog(
             Button(
                 onClick = {
                     widgetPrefs.setPreset(selectedPreset)
-                    // Trigger immediate refresh broadcast
                     val intent = Intent(context, GaliciaWeatherWidgetProvider::class.java).apply {
                         action = GaliciaWeatherWidgetProvider.ACTION_WIDGET_REFRESH
                     }
@@ -101,12 +186,12 @@ fun WidgetThemeDialog(
                 },
                 modifier = Modifier.testTag("btn_save_widget_preset")
             ) {
-                Text("Aplicar ao Widget")
+                Text("Gardar Preaxuste")
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar")
+                Text("Pechar")
             }
         }
     )
@@ -140,62 +225,50 @@ private fun PresetSelectionCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
                 color = borderColor,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(12.dp)
             )
+            .background(cardBackground)
             .clickable(onClick = onClick)
-            .padding(10.dp)
+            .padding(12.dp)
+            .testTag("widget_preset_${preset.name.lowercase()}")
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Miniature preview pill
-            Box(
-                modifier = Modifier
-                    .size(width = 54.dp, height = 44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(cardBackground)
-                    .border(1.dp, if (preset.isDarkText) Color(0x330F172A) else Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "19°",
-                        color = textColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "⛅",
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = preset.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = preset.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = textColor
+                    )
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Seleccionado",
+                            tint = textColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = preset.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 12.sp,
+                    color = subTextColor
                 )
             }
-
             RadioButton(
                 selected = isSelected,
-                onClick = onClick,
-                modifier = Modifier.testTag("radio_preset_${preset.key}")
+                onClick = onClick
             )
         }
     }

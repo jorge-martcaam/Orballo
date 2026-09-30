@@ -27,7 +27,7 @@ class LocationPreferences(context: Context) {
 
     fun isDefaultLocation(location: GaliciaLocation): Boolean {
         val defaultLoc = getDefaultLocation()
-        return !location.isGps && location.name == defaultLoc.name
+        return location.name == defaultLoc.name
     }
 
     fun getFavorites(): List<GaliciaLocation> {
@@ -47,7 +47,6 @@ class LocationPreferences(context: Context) {
     }
 
     fun toggleFavorite(location: GaliciaLocation): ToggleFavoriteResult {
-        if (location.isGps) return ToggleFavoriteResult.REMOVED
         val currentFavorites = getFavorites().toMutableList()
         val existingIndex = currentFavorites.indexOfFirst { it.name == location.name }
         if (existingIndex >= 0) {

@@ -3,6 +3,8 @@ package com.example.data.repository
 import com.example.data.api.MeteoGaliciaApiService
 import com.example.data.api.NetworkClient
 import com.example.data.api.WeatherApiService
+import com.example.data.db.WeatherCacheDao
+import com.example.data.db.WeatherCacheEntity
 import com.example.data.model.CurrentAirQualityDto
 import com.example.data.model.CurrentWeatherDto
 import com.example.data.model.DayForecast
@@ -35,7 +37,9 @@ data class FullWeatherData(
     val alerts: List<WeatherAlert>,
     val primarySource: WeatherDataSource = WeatherDataSource.METEOGALICIA,
     val isFallback: Boolean = false,
-    val timezone: String = "Europe/Madrid"
+    val timezone: String = "Europe/Madrid",
+    val isFromCache: Boolean = false,
+    val cachedAtEpochMs: Long = 0L
 )
 
 data class AirQualityData(
@@ -77,10 +81,60 @@ data class MultiYearHistoricalSummary(
 
 class WeatherRepository(
     private val api: WeatherApiService = NetworkClient.weatherApi,
-    private val meteoGaliciaApi: MeteoGaliciaApiService = NetworkClient.meteoGaliciaApi
+    private val meteoGaliciaApi: MeteoGaliciaApiService = NetworkClient.meteoGaliciaApi,
+    private val cacheDao: WeatherCacheDao? = null
 ) {
 
+    companion object {
+        const val CACHE_TTL_MS = 2 * 60 * 60 * 1000L // 2 horas de vida útil acordadas
+    }
+
+    private val moshiAdapter by lazy {
+        NetworkClient.moshi.adapter(FullWeatherData::class.java)
+    }
+
+    class NoWeatherDataException(message: String) : Exception(message)
+
     suspend fun fetchWeather(location: GaliciaLocation): FullWeatherData = coroutineScope {
+        try {
+            val freshData = fetchWeatherFromNetwork(location)
+            if (cacheDao != null) {
+                try {
+                    val json = moshiAdapter.toJson(freshData)
+                    cacheDao.insertOrUpdate(
+                        WeatherCacheEntity(
+                            locationKey = location.name,
+                            locationName = location.name,
+                            jsonPayload = json,
+                            cachedAtEpochMs = System.currentTimeMillis()
+                        )
+                    )
+                } catch (_: Exception) {}
+            }
+            freshData
+        } catch (networkError: Exception) {
+            if (cacheDao != null) {
+                try {
+                    val cachedEntity = cacheDao.getByLocationKey(location.name)
+                    if (cachedEntity != null) {
+                        val ageMs = System.currentTimeMillis() - cachedEntity.cachedAtEpochMs
+                        if (ageMs <= CACHE_TTL_MS) {
+                            val cachedData = moshiAdapter.fromJson(cachedEntity.jsonPayload)
+                            if (cachedData != null) {
+                                return@coroutineScope cachedData.copy(
+                                    isFromCache = true,
+                                    cachedAtEpochMs = cachedEntity.cachedAtEpochMs
+                                )
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+            throw networkError
+        }
+    }
+
+    private suspend fun fetchWeatherFromNetwork(location: GaliciaLocation): FullWeatherData = coroutineScope {
         if (!location.isGalicia) {
             val openMeteoResponse = runCatching {
                 api.getForecast(
@@ -88,7 +142,7 @@ class WeatherRepository(
                     longitude = location.longitude,
                     models = "ecmwf_ifs"
                 )
-            }.getOrNull()
+            }.getOrNull() ?: throw NoWeatherDataException("Non foi posible obter a predición meteorolóxica para ${location.name}. Comprobe a conexión á rede.")
             return@coroutineScope buildOpenMeteoFallbackWeather(
                 location = location,
                 openMeteoResponse = openMeteoResponse,
@@ -136,12 +190,14 @@ class WeatherRepository(
                 mgObsResponse = mgObsResponse,
                 openMeteoResponse = openMeteoResponse
             )
-        } else {
+        } else if (openMeteoResponse != null && (openMeteoResponse.current != null || openMeteoResponse.daily != null)) {
             buildOpenMeteoFallbackWeather(
                 location = location,
                 openMeteoResponse = openMeteoResponse,
                 isFallback = true
             )
+        } else {
+            throw NoWeatherDataException("Non foi posible conectar cos servizos meteorolóxicos de MeteoGalicia nin de respaldo. Comprobe a conexión á rede.")
         }
     }
 
@@ -358,18 +414,28 @@ class WeatherRepository(
         openMeteoResponse: WeatherResponse?,
         isFallback: Boolean = true
     ): FullWeatherData {
-        val currentDto = openMeteoResponse?.current ?: CurrentWeatherDto(
-            temperature = 16.0,
-            relativeHumidity = 78.0,
-            apparentTemperature = 15.0,
-            precipitation = 0.0,
-            weatherCode = 2,
-            surfacePressure = 1018.0,
-            windSpeed = 22.0,
-            windDirection = 240.0,
-            windGusts = 35.0,
-            uvIndex = 3.0
-        )
+        val currentDto = openMeteoResponse?.current ?: run {
+            val daily = openMeteoResponse?.daily
+            if (daily?.time != null && daily.time.isNotEmpty()) {
+                val tMax = daily.temperatureMax?.firstOrNull() ?: 15.0
+                val tMin = daily.temperatureMin?.firstOrNull() ?: 10.0
+                val avgTemp = (tMax + tMin) / 2.0
+                CurrentWeatherDto(
+                    temperature = avgTemp,
+                    relativeHumidity = 75.0,
+                    apparentTemperature = avgTemp,
+                    precipitation = daily.precipitationSum?.firstOrNull() ?: 0.0,
+                    weatherCode = daily.weatherCode?.firstOrNull() ?: 0,
+                    surfacePressure = 1016.0,
+                    windSpeed = daily.windSpeedMax?.firstOrNull() ?: 15.0,
+                    windDirection = 220.0,
+                    windGusts = daily.windSpeedMax?.firstOrNull() ?: 20.0,
+                    uvIndex = null
+                )
+            } else {
+                throw NoWeatherDataException("Non hai datos de predición dispoñibles para ${location.name}.")
+            }
+        }
 
         val (conditionDesc, iconEmoji) = WeatherConditionUtils.getConditionInfo(currentDto.weatherCode ?: 0)
 

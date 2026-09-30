@@ -11,11 +11,11 @@ import android.view.View
 import android.widget.RemoteViews
 import com.example.MainActivity
 import com.example.R
-import com.example.data.location.LocationHelper
 import com.example.data.model.GaliciaLocation
 import com.example.data.repository.WeatherRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -168,17 +168,39 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
         views.setTextColor(R.id.widget_temperature, preset.primaryTextColor)
         views.setTextColor(R.id.widget_condition, preset.primaryTextColor)
         views.setTextColor(R.id.widget_feels_like, preset.secondaryTextColor)
-        views.setTextColor(R.id.widget_uv, preset.primaryTextColor)
-        views.setInt(R.id.widget_uv, "setBackgroundResource", preset.buttonBackgroundRes)
+        views.setTextColor(R.id.widget_uv, preset.secondaryTextColor)
 
-        if (layoutId == R.layout.widget_weather_layout || layoutId == R.layout.widget_weather_layout_wide) {
-            views.setTextColor(R.id.widget_wind, preset.primaryTextColor)
-            views.setTextColor(R.id.widget_humidity, preset.primaryTextColor)
-            views.setTextColor(R.id.widget_precip, preset.primaryTextColor)
-            views.setTextColor(R.id.widget_label_wind, preset.secondaryTextColor)
-            views.setTextColor(R.id.widget_label_humidity, preset.secondaryTextColor)
-            views.setTextColor(R.id.widget_label_precip, preset.secondaryTextColor)
-        }
+        views.setTextColor(R.id.widget_wind, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_humidity, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_precip, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_label_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_label_humidity, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_label_precip, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_periods_compact_text, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_cperiod1_label, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod1_temp, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_cperiod1_rain, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod1_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod2_label, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod2_temp, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_cperiod2_rain, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod2_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod3_label, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod3_temp, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_cperiod3_rain, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_cperiod3_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_period1_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_period2_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_period3_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_air_quality_label, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_air_quality_value, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_historical_title, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_historical_temp, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_historical_temp_label, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_historical_condition, preset.primaryTextColor)
+        views.setTextColor(R.id.widget_historical_range, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_historical_wind, preset.secondaryTextColor)
+        views.setTextColor(R.id.widget_historical_rain, preset.secondaryTextColor)
 
         // Setup manual refresh pending intent
         val refreshIntent = Intent(context, GaliciaWeatherWidgetProvider::class.java).apply {
@@ -213,8 +235,32 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
                     locationPrefs.getDefaultLocation()
                 }
 
+                val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+                val isMaxSize = (layoutId == R.layout.widget_weather_layout && minHeight >= 200)
+
                 val repository = WeatherRepository()
-                val weatherData = repository.fetchWeather(targetLocation)
+
+                val weatherDeferred = async { repository.fetchWeather(targetLocation) }
+                val airQualityDeferred = if (isMaxSize) async {
+                    try {
+                        repository.fetchAirQuality(targetLocation)
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else null
+
+                val pastDate = java.time.LocalDate.now().minusYears(1).toString()
+                val pastYear = java.time.LocalDate.now().minusYears(1).year
+                val historicalDeferred = if (isMaxSize) async {
+                    try {
+                        repository.fetchHistoricalWeather(targetLocation, pastDate)
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else null
+
+                val weatherData = weatherDeferred.await()
 
                 val temp = weatherData.current.temperature?.roundToInt() ?: 0
                 val apparentTemp = weatherData.current.apparentTemperature?.roundToInt() ?: temp
@@ -227,19 +273,24 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_location, targetLocation.name)
                 views.setTextViewText(R.id.widget_temperature, "$temp°")
                 views.setTextViewText(R.id.widget_condition, weatherData.conditionDescription)
-                views.setTextViewText(R.id.widget_feels_like, "Sensación $apparentTemp°C")
+                views.setTextViewText(R.id.widget_feels_like, "Sens. $apparentTemp°C")
                 views.setTextViewText(R.id.widget_emoji, weatherData.iconEmoji)
                 views.setTextViewText(R.id.widget_wind, "$wind km/h")
                 views.setTextViewText(R.id.widget_humidity, "$humidity%")
                 views.setTextViewText(R.id.widget_precip, precipStr)
-                views.setTextViewText(R.id.widget_updated, "Actualizado ás $timeStr")
+                if (layoutId == R.layout.widget_weather_layout_wide) {
+                    views.setTextViewText(R.id.widget_updated, timeStr)
+                } else {
+                    views.setTextViewText(R.id.widget_updated, "Actualizado ás $timeStr")
+                }
 
-                // Bind UV index badge next to emoji (visible only when uvIndex > 0)
+                // Bind UV index indicator (visible only when uvIndex > 0)
                 val uvVal = weatherData.current.uvIndex
                 if (uvVal != null && uvVal > 0.0) {
                     val uvInt = uvVal.roundToInt()
                     views.setViewVisibility(R.id.widget_uv, View.VISIBLE)
-                    views.setTextViewText(R.id.widget_uv, "☀️ $uvInt")
+                    val uvText = "☀️ UV $uvInt"
+                    views.setTextViewText(R.id.widget_uv, uvText)
                 } else {
                     views.setViewVisibility(R.id.widget_uv, View.GONE)
                 }
@@ -250,6 +301,116 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
                     views.setTextViewText(R.id.widget_alert, "⚠️ ${topAlert.title}")
                 } else {
                     views.setViewVisibility(R.id.widget_alert, View.GONE)
+                }
+
+                // Check widget options for height to show periods or max extra details
+                if (layoutId == R.layout.widget_weather_layout_compact) {
+                    if (minHeight in 1..75) {
+                        views.setViewVisibility(R.id.widget_compact_metrics, View.GONE)
+                    } else {
+                        views.setViewVisibility(R.id.widget_compact_metrics, View.VISIBLE)
+                    }
+
+                    if (minHeight >= 115) {
+                        val periods = getRelevantPeriods(weatherData)
+                        if (periods.size >= 3) {
+                            views.setTextViewText(R.id.widget_cperiod1_label, periods[0].label)
+                            views.setTextViewText(R.id.widget_cperiod1_temp, "${periods[0].iconEmoji} ${periods[0].tempStr}")
+                            views.setTextViewText(R.id.widget_cperiod1_rain, "💧 ${periods[0].rainStr}")
+                            views.setTextViewText(R.id.widget_cperiod1_wind, periods[0].windStr)
+
+                            views.setTextViewText(R.id.widget_cperiod2_label, periods[1].label)
+                            views.setTextViewText(R.id.widget_cperiod2_temp, "${periods[1].iconEmoji} ${periods[1].tempStr}")
+                            views.setTextViewText(R.id.widget_cperiod2_rain, "💧 ${periods[1].rainStr}")
+                            views.setTextViewText(R.id.widget_cperiod2_wind, periods[1].windStr)
+
+                            views.setTextViewText(R.id.widget_cperiod3_label, periods[2].label)
+                            views.setTextViewText(R.id.widget_cperiod3_temp, "${periods[2].iconEmoji} ${periods[2].tempStr}")
+                            views.setTextViewText(R.id.widget_cperiod3_rain, "💧 ${periods[2].rainStr}")
+                            views.setTextViewText(R.id.widget_cperiod3_wind, periods[2].windStr)
+                        }
+                        views.setViewVisibility(R.id.widget_periods_compact_row, View.VISIBLE)
+                    } else {
+                        views.setViewVisibility(R.id.widget_periods_compact_row, View.GONE)
+                    }
+                }
+
+                if (layoutId == R.layout.widget_weather_layout) {
+                    val periods = getRelevantPeriods(weatherData)
+                    if (minHeight >= 100 && periods.size >= 3) {
+                        views.setViewVisibility(R.id.widget_periods_container, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_periods_compact_row, View.GONE)
+
+                        views.setTextViewText(R.id.widget_period1_label, periods[0].label)
+                        views.setTextViewText(R.id.widget_period1_icon, periods[0].iconEmoji)
+                        views.setTextViewText(R.id.widget_period1_temp, periods[0].tempStr)
+                        views.setTextViewText(R.id.widget_period1_rain, "💧 ${periods[0].rainStr}")
+                        views.setTextViewText(R.id.widget_period1_wind, periods[0].windStr)
+
+                        views.setTextViewText(R.id.widget_period2_label, periods[1].label)
+                        views.setTextViewText(R.id.widget_period2_icon, periods[1].iconEmoji)
+                        views.setTextViewText(R.id.widget_period2_temp, periods[1].tempStr)
+                        views.setTextViewText(R.id.widget_period2_rain, "💧 ${periods[1].rainStr}")
+                        views.setTextViewText(R.id.widget_period2_wind, periods[1].windStr)
+
+                        views.setTextViewText(R.id.widget_period3_label, periods[2].label)
+                        views.setTextViewText(R.id.widget_period3_icon, periods[2].iconEmoji)
+                        views.setTextViewText(R.id.widget_period3_temp, periods[2].tempStr)
+                        views.setTextViewText(R.id.widget_period3_rain, "💧 ${periods[2].rainStr}")
+                        views.setTextViewText(R.id.widget_period3_wind, periods[2].windStr)
+                    } else {
+                        views.setViewVisibility(R.id.widget_periods_container, View.GONE)
+                        views.setViewVisibility(R.id.widget_periods_compact_row, View.GONE)
+                    }
+
+                    if (isMaxSize) {
+                        views.setViewVisibility(R.id.widget_max_extra_container, View.VISIBLE)
+                        val aqiData = airQualityDeferred?.await()
+                        if (aqiData?.aqi != null) {
+                            views.setViewVisibility(R.id.widget_air_quality_card, View.VISIBLE)
+                            val aqiVal = aqiData.aqi.roundToInt()
+                            val aqiCategory = aqiData.aqiCategory
+                            val pm25Str = aqiData.pm25?.let { " • PM2.5: ${it.roundToInt()} µg/m³" } ?: ""
+                            views.setTextViewText(R.id.widget_air_quality_value, "$aqiCategory (ICA $aqiVal)$pm25Str")
+                        } else {
+                            views.setViewVisibility(R.id.widget_air_quality_card, View.GONE)
+                        }
+
+                        val histData = historicalDeferred?.await()
+                        if (histData != null) {
+                            views.setViewVisibility(R.id.widget_historical_card, View.VISIBLE)
+                            views.setTextViewText(R.id.widget_historical_title, "📅 Tal día coma hoxe ($pastYear)")
+
+                            val tMax = histData.tempMax
+                            val tMin = histData.tempMin
+                            val meanTemp = if (tMax != null && tMin != null) {
+                                ((tMax + tMin) / 2.0).roundToInt()
+                            } else {
+                                tMax?.roundToInt() ?: tMin?.roundToInt() ?: 0
+                            }
+
+                            views.setTextViewText(R.id.widget_historical_temp, "$meanTemp°")
+                            views.setTextViewText(R.id.widget_historical_condition, histData.conditionDescription)
+                            views.setTextViewText(R.id.widget_historical_emoji, histData.iconEmoji)
+
+                            val rangeStr = if (tMax != null && tMin != null) {
+                                "↕ ${tMax.roundToInt()}° / ${tMin.roundToInt()}°"
+                            } else {
+                                "--"
+                            }
+                            views.setTextViewText(R.id.widget_historical_range, rangeStr)
+
+                            val histWindStr = histData.maxWindSpeed?.let { "💨 ${it.roundToInt()} km/h" } ?: "💨 --"
+                            views.setTextViewText(R.id.widget_historical_wind, histWindStr)
+
+                            val histRainStr = histData.precipitationSum?.let { String.format(Locale.US, "🌧️ %.1f mm", it) } ?: "🌧️ 0.0 mm"
+                            views.setTextViewText(R.id.widget_historical_rain, histRainStr)
+                        } else {
+                            views.setViewVisibility(R.id.widget_historical_card, View.GONE)
+                        }
+                    } else {
+                        views.setViewVisibility(R.id.widget_max_extra_container, View.GONE)
+                    }
                 }
 
                 if (preset == com.example.data.widget.WidgetThemePreset.DYNAMIC) {
@@ -281,15 +442,51 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
                     views.setTextColor(R.id.widget_temperature, primColor)
                     views.setTextColor(R.id.widget_condition, primColor)
                     views.setTextColor(R.id.widget_feels_like, secColor)
-                    views.setTextColor(R.id.widget_uv, primColor)
+                    views.setTextColor(R.id.widget_uv, secColor)
 
-                    if (layoutId == R.layout.widget_weather_layout || layoutId == R.layout.widget_weather_layout_wide) {
-                        views.setTextColor(R.id.widget_wind, primColor)
-                        views.setTextColor(R.id.widget_humidity, primColor)
-                        views.setTextColor(R.id.widget_precip, primColor)
-                        views.setTextColor(R.id.widget_label_wind, secColor)
-                        views.setTextColor(R.id.widget_label_humidity, secColor)
-                        views.setTextColor(R.id.widget_label_precip, secColor)
+                    views.setTextColor(R.id.widget_wind, primColor)
+                    views.setTextColor(R.id.widget_humidity, primColor)
+                    views.setTextColor(R.id.widget_precip, primColor)
+                    views.setTextColor(R.id.widget_label_wind, secColor)
+                    views.setTextColor(R.id.widget_label_humidity, secColor)
+                    views.setTextColor(R.id.widget_label_precip, secColor)
+
+                    if (layoutId == R.layout.widget_weather_layout) {
+                        views.setTextColor(R.id.widget_period1_label, secColor)
+                        views.setTextColor(R.id.widget_period1_temp, primColor)
+                        views.setTextColor(R.id.widget_period1_rain, secColor)
+                        views.setTextColor(R.id.widget_period1_wind, secColor)
+                        views.setTextColor(R.id.widget_period2_label, secColor)
+                        views.setTextColor(R.id.widget_period2_temp, primColor)
+                        views.setTextColor(R.id.widget_period2_rain, secColor)
+                        views.setTextColor(R.id.widget_period2_wind, secColor)
+                        views.setTextColor(R.id.widget_period3_label, secColor)
+                        views.setTextColor(R.id.widget_period3_temp, primColor)
+                        views.setTextColor(R.id.widget_period3_rain, secColor)
+                        views.setTextColor(R.id.widget_period3_wind, secColor)
+                        views.setTextColor(R.id.widget_air_quality_label, secColor)
+                        views.setTextColor(R.id.widget_air_quality_value, primColor)
+                        views.setTextColor(R.id.widget_historical_title, secColor)
+                        views.setTextColor(R.id.widget_historical_temp, primColor)
+                        views.setTextColor(R.id.widget_historical_temp_label, secColor)
+                        views.setTextColor(R.id.widget_historical_condition, primColor)
+                        views.setTextColor(R.id.widget_historical_range, secColor)
+                        views.setTextColor(R.id.widget_historical_wind, secColor)
+                        views.setTextColor(R.id.widget_historical_rain, secColor)
+                    } else if (layoutId == R.layout.widget_weather_layout_compact) {
+                        views.setTextColor(R.id.widget_periods_compact_text, primColor)
+                        views.setTextColor(R.id.widget_cperiod1_label, secColor)
+                        views.setTextColor(R.id.widget_cperiod1_temp, primColor)
+                        views.setTextColor(R.id.widget_cperiod1_rain, secColor)
+                        views.setTextColor(R.id.widget_cperiod1_wind, secColor)
+                        views.setTextColor(R.id.widget_cperiod2_label, secColor)
+                        views.setTextColor(R.id.widget_cperiod2_temp, primColor)
+                        views.setTextColor(R.id.widget_cperiod2_rain, secColor)
+                        views.setTextColor(R.id.widget_cperiod2_wind, secColor)
+                        views.setTextColor(R.id.widget_cperiod3_label, secColor)
+                        views.setTextColor(R.id.widget_cperiod3_temp, primColor)
+                        views.setTextColor(R.id.widget_cperiod3_rain, secColor)
+                        views.setTextColor(R.id.widget_cperiod3_wind, secColor)
                     }
 
                     views.setInt(R.id.widget_btn_prev_location, "setColorFilter", primColor)
@@ -302,6 +499,82 @@ class GaliciaWeatherWidgetProvider : AppWidgetProvider() {
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             }
         }
+    }
+
+    private data class WidgetPeriodDisplay(
+        val label: String,
+        val iconEmoji: String,
+        val tempStr: String,
+        val rainStr: String,
+        val windStr: String = ""
+    )
+
+    private fun getRelevantPeriods(weatherData: com.example.data.repository.FullWeatherData): List<WidgetPeriodDisplay> {
+        val hour = com.example.data.model.WeatherTimeUtils.getCurrentHourInZone(weatherData.timezone)
+        val todayPeriods = weatherData.sevenDayForecast.firstOrNull()?.periods.orEmpty()
+        val tomorrowPeriods = weatherData.sevenDayForecast.getOrNull(1)?.periods.orEmpty()
+        val baseWind = (weatherData.current.windSpeed ?: 10.0).roundToInt().coerceAtLeast(5)
+        val maxWind = (weatherData.sevenDayForecast.firstOrNull()?.maxWindSpeed ?: (weatherData.current.windSpeed ?: 15.0)).roundToInt().coerceAtLeast(baseWind)
+        val list = mutableListOf<WidgetPeriodDisplay>()
+
+        if (hour >= 21) {
+            // Night shift: Esta Noite, Mañá (M), Mañá (T)
+            val tonight = todayPeriods.firstOrNull { it.periodName.contains("Noite", ignoreCase = true) }
+                ?: todayPeriods.lastOrNull()
+            if (tonight != null) {
+                val temp = tonight.estimatedTemp?.roundToInt()?.let { "$it°" } ?: "--°"
+                list.add(WidgetPeriodDisplay("Esta Noite", tonight.iconEmoji, temp, "${tonight.precipitationProbability}%", "💨 ${(baseWind * 0.8).roundToInt()}"))
+            }
+            val tomorrowMorning = tomorrowPeriods.firstOrNull { it.periodName.contains("Mañá", ignoreCase = true) }
+                ?: tomorrowPeriods.getOrNull(0)
+            if (tomorrowMorning != null) {
+                val temp = tomorrowMorning.estimatedTemp?.roundToInt()?.let { "$it°" } ?: "--°"
+                list.add(WidgetPeriodDisplay("Mañá (M)", tomorrowMorning.iconEmoji, temp, "${tomorrowMorning.precipitationProbability}%", "💨 $baseWind"))
+            }
+            val tomorrowAfternoon = tomorrowPeriods.firstOrNull { it.periodName.contains("Tarde", ignoreCase = true) }
+                ?: tomorrowPeriods.getOrNull(1)
+            if (tomorrowAfternoon != null) {
+                val temp = tomorrowAfternoon.estimatedTemp?.roundToInt()?.let { "$it°" } ?: "--°"
+                list.add(WidgetPeriodDisplay("Mañá (T)", tomorrowAfternoon.iconEmoji, temp, "${tomorrowAfternoon.precipitationProbability}%", "💨 $maxWind"))
+            }
+        } else {
+            // Standard daytime: Mañá, Tarde, Noite
+            val periodWinds = listOf(
+                "💨 $baseWind",
+                "💨 $maxWind",
+                "💨 ${(maxWind * 0.75).roundToInt().coerceAtLeast(5)}"
+            )
+            for ((idx, p) in todayPeriods.take(3).withIndex()) {
+                val temp = p.estimatedTemp?.roundToInt()?.let { "$it°" } ?: "--°"
+                val w = periodWinds.getOrElse(idx) { "💨 $baseWind" }
+                list.add(WidgetPeriodDisplay(p.periodName, p.iconEmoji, temp, "${p.precipitationProbability}%", w))
+            }
+        }
+
+        // Resilient fallback if period breakdowns are missing
+        if (list.size < 3) {
+            val days = weatherData.sevenDayForecast.take(3)
+            list.clear()
+            for ((idx, day) in days.withIndex()) {
+                val label = when (idx) {
+                    0 -> "Hoxe"
+                    1 -> "Mañá"
+                    else -> day.date.takeLast(5)
+                }
+                val w = "💨 ${day.maxWindSpeed.roundToInt().coerceAtLeast(5)}"
+                list.add(
+                    WidgetPeriodDisplay(
+                        label = label,
+                        iconEmoji = day.iconEmoji,
+                        tempStr = "${day.tempMax.roundToInt()}° / ${day.tempMin.roundToInt()}°",
+                        rainStr = "${day.precipitationProbability}%",
+                        windStr = w
+                    )
+                )
+            }
+        }
+
+        return list
     }
 
     companion object {
